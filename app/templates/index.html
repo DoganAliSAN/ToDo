@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo Website</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <style>
+        :root {
+
+            --div-background-first: #2f2e2d;
+            --div-background-middle: #383735;
+            --div-background-last: #575553;
+            --button-first: rgb(193, 146, 75);
+            accent-color: var(--button-first);
+        }
+        body {
+            background-image: url("../static/background.jpg");
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 50vw;
+            min-height: 50vw;
+            border-radius: 20px;
+            background-color: var(--div-background-first);
+            margin-top: 20px; /* Added margin to align container better */
+        }
+        .upper-container {
+            width: 95%;
+            margin: 10px auto; /* Center align upper container */
+            border-radius: 20px;
+        }
+        .lower-container {
+            color:var(--button-first);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .item {
+            color: white;
+            background-color: var(--div-background-middle);
+            margin: 5px;
+            width: 95%;
+            height: 3vw;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            border-radius: 20px;
+        }
+        .item>form {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding-right:5px;
+        }
+        .item.dragging {
+            opacity: 0.5;
+        }
+        .leftside>input {
+            cursor: pointer;
+        }
+        .delete {
+            color: var(--button-first);
+            text-decoration: none;
+        }
+        .append {
+            width: 100%;
+            display: flex;
+            background-color: var(--div-background-last);
+            border-radius: 20px;
+
+        }
+        .append>input {
+            color: var(--button-first);
+            width: 80%;
+            height: 30px;
+            text-align: center;
+            background-color: var(--div-background-last);
+            border: none;
+            border-radius: 20px;
+            font-size:14px;
+        }
+        .append>button {
+
+            width: 20%;
+            height: 30px;
+            border: none;
+            border-radius: 20px;
+            background-color: var(--button-first);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="upper-container">
+            <div class="append">
+                <form action="/append" method="post" class="append">
+                    <input type="text" name="task" placeholder="Enter To-Do">
+                    <button type="submit">Add</button>
+                </form>
+            </div>
+        </div>
+        <div class="lower-container" id="sortable-list">
+            {% if tasks|length == 0 %}
+            <h1>No To-Do's</h1>
+            {% endif %}
+            {% for task in tasks %}
+            <div class="item" draggable="true">
+                <form action="/status" method="post" class="item-form">
+                    <input type="hidden" name="id" value="{{ task.id }}">
+                    <div class="leftside">
+                        <input type="checkbox" name="status" {% if task.status %} checked {% endif %}>
+                        <label>{{ task.task }}</label>
+                    </div>
+                    <div class="rightside">
+                        <a class="delete" href="/delete?id={{ task.id }}">Delete</a>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        // Checkbox system
+        document.addEventListener("DOMContentLoaded", function() {
+            const checkboxes = document.querySelectorAll('.item input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener("change", function(event) {
+                    const formData = new FormData();
+                    formData.append('id', this.parentElement.parentElement.querySelector('input[type="hidden"]').value);
+                    formData.append('status', this.checked);
+
+                    fetch('/status', {
+                        method: 'POST',
+                        body: formData
+                    }).then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    }).then(data => {
+                        console.log('Status updated successfully:', data);
+                    }).catch(error => {
+                        console.error('Error updating status:', error);
+                    });
+                });
+            });
+        });
+
+        // Drag and drop sorting
+        document.addEventListener("DOMContentLoaded", function() {
+            const sortableList = document.getElementById('sortable-list');
+
+            if (sortableList) {
+                let draggingItem = null;
+
+                sortableList.addEventListener('dragstart', function(e) {
+                    draggingItem = e.target.closest('.item');
+                    setTimeout(() => {
+                        draggingItem.classList.add('dragging');
+                    }, 0);
+                });
+
+                sortableList.addEventListener('dragend', function(e) {
+                    if (!draggingItem) return;
+                    draggingItem.classList.remove('dragging');
+                    draggingItem = null;
+                });
+
+                sortableList.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    const targetItem = e.target.closest('.item');
+                    if (!draggingItem || !targetItem || draggingItem === targetItem) return;
+
+                    const bounding = targetItem.getBoundingClientRect();
+                    const offset = bounding.y + (bounding.height / 2);
+                    if (e.clientY - offset > 0) {
+                        targetItem.parentNode.insertBefore(draggingItem, targetItem.nextSibling);
+                    } else {
+                        targetItem.parentNode.insertBefore(draggingItem, targetItem);
+                    }
+                });
+
+                sortableList.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                });
+            } else {
+                console.error("Element with id 'sortable-list' not found.");
+            }
+        });
+    </script>
+</body>
+</html>
